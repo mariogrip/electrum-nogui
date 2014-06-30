@@ -1,21 +1,16 @@
-#!/usr/bin/env python
+# Using Electrum Core  (https://github.com/spesmilo/electrum)
 #
-# Electrum - lightweight Bitcoin client
-# Copyright (C) 2011 thomasv@gitorious
+# Electrum terminal Lite version
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+########################-Deveoper Info-"#################################
+# This is made for more devoping frendly code, easyser to understand.	#
+# @author Mariogrip, ThomasV						#
+# @core https://github.com/spesmilo/electrum 				#
+#									#
+# licence https://github.com/spesmilo/electrum/blob/master/LICENCE 	#
+#########################################################################
 
+# import
 from decimal import Decimal
 import json
 import optparse
@@ -26,27 +21,17 @@ import sys
 import time
 import traceback
 
-
-is_local = os.path.dirname(os.path.realpath(__file__)) == os.getcwd()
-is_android = 'ANDROID_DATA' in os.environ
-
-import __builtin__
-__builtin__.use_local_modules = is_local or is_android
-
-# load local module as electrum
-if __builtin__.use_local_modules:
-    import imp
-    imp.load_module('electrum', *imp.find_module('lib'))
-    imp.load_module('electrum_gui', *imp.find_module('gui'))
-
-if is_local:
-    sys.path.append('packages')
+# import electum libs
+import simple_config, network, wallet, commands, daemon, util
+from commands import known_commands
+from wallet import *
+from simple_config import *
+from network import *
+from commands import *
+from daemon import *
+from util import *
 
 
-from electrum import SimpleConfig, Network, Wallet, WalletStorage, NetworkProxy, Commands, known_commands, pick_random_server
-from electrum.util import print_msg, print_stderr, print_json, set_verbosity
-
-# get password routine
 def prompt_password(prompt, confirm=True):
     import getpass
     if sys.stdin.isatty():
@@ -60,35 +45,6 @@ def prompt_password(prompt, confirm=True):
     if not password:
         password = None
     return password
-
-
-def arg_parser():
-    usage = "%prog [options] command"
-    parser = optparse.OptionParser(prog=usage, add_help_option=False)
-    parser.add_option("-h", "--help", action="callback", callback=print_help_cb, help="show this help text")
-    parser.add_option("-g", "--gui", dest="gui", help="User interface: qt, lite, gtk, text or stdio")
-    parser.add_option("-w", "--wallet", dest="wallet_path", help="wallet path (default: electrum.dat)")
-    parser.add_option("-o", "--offline", action="store_true", dest="offline", default=False, help="remain offline")
-    parser.add_option("-C", "--concealed", action="store_true", dest="concealed", default=False, help="don't echo seed to console when restoring")
-    parser.add_option("-a", "--all", action="store_true", dest="show_all", default=False, help="show all addresses")
-    parser.add_option("-l", "--labels", action="store_true", dest="show_labels", default=False, help="show the labels of listed addresses")
-    parser.add_option("-f", "--fee", dest="tx_fee", default=None, help="set tx fee")
-    parser.add_option("-F", "--fromaddr", dest="from_addr", default=None, help="set source address for payto/mktx. if it isn't in the wallet, it will ask for the private key unless supplied in the format public_key:private_key. It's not saved in the wallet.")
-    parser.add_option("-c", "--changeaddr", dest="change_addr", default=None, help="set the change address for payto/mktx. default is a spare address, or the source address if it's not in the wallet")
-    parser.add_option("-s", "--server", dest="server", default=None, help="set server host:port:protocol, where protocol is either t (tcp), h (http), s (tcp+ssl), or g (https)")
-    parser.add_option("-p", "--proxy", dest="proxy", default=None, help="set proxy [type:]host[:port], where type is socks4,socks5 or http")
-    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, help="show debugging information")
-    parser.add_option("-P", "--portable", action="store_true", dest="portable", default=False, help="portable wallet")
-    parser.add_option("-L", "--lang", dest="language", default=None, help="defaut language used in GUI")
-    parser.add_option("-u", "--usb", dest="bitkey", action="store_true", help="Turn on support for hardware wallets (EXPERIMENTAL)")
-    parser.add_option("-G", "--gap", dest="gap_limit", default=None, help="gap limit")
-    parser.add_option("-W", "--password", dest="password", default=None, help="set password for usage with commands (currently only implemented for create command, do not use it for longrunning gui session since the password is visible in /proc)")
-    parser.add_option("-1", "--oneserver", action="store_true", dest="oneserver", default=False, help="connect to one server only")
-    parser.add_option("--bip32", action="store_true", dest="bip32", default=False, help="bip32 (not final)")
-    parser.add_option("--2of3", action="store_true", dest="2of3", default=False, help="create 2of3 wallet")
-    parser.add_option("--mpk", dest="mpk", default=False, help="restore from master public key")
-    parser.add_option("-m", action="store_true", dest="hide_gui", default=False, help="hide GUI on startup")
-    return parser
 
 
 def print_help(parser):
@@ -137,83 +93,25 @@ def run_command(cmd, password=None, args=None):
         print_msg(result)
     elif result is not None:
         print_json(result)
-
-
-
-
+def arg_parser():
+    usage = "%prog [options] command"
+    parser = optparse.OptionParser(prog=usage, add_help_option=False)
+    return parser
 
 
 if __name__ == '__main__':
 
     parser = arg_parser()
     options, args = parser.parse_args()
-    if options.portable and options.wallet_path is None:
-        options.electrum_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'electrum_data')
 
-    # config is an object passed to the various constructors (wallet, interface, gui)
-    if is_android:
-        config_options = {
-            'portable': True,
-            'verbose': True,
-            'gui': 'android',
-            'auto_cycle': True,
-        }
-    else:
-        config_options = eval(str(options))
-        for k, v in config_options.items():
-            if v is None:
-                config_options.pop(k)
-
-    set_verbosity(config_options.get('verbose'))
-
-    config = SimpleConfig(config_options)
-
-    if len(args) == 0:
-        url = None
-        cmd = 'gui'
-    elif len(args) == 1 and re.match('^bitcoin:', args[0]):
-        url = args[0]
-        cmd = 'gui'
-    else:
-        cmd = args[0]
-
-    if cmd == 'gui':
-        gui_name = config.get('gui', 'classic')
-        if gui_name in ['lite', 'classic']:
-            gui_name = 'qt'
-        try:
-            gui = __import__('electrum_gui.' + gui_name, fromlist=['electrum_gui'])
-        except ImportError:
-            traceback.print_exc(file=sys.stdout)
-            sys.exit()
-            #sys.exit("Error: Unknown GUI: " + gui_name )
-
-        # network interface
-        if not options.offline:
-            network = Network(config)
-            network.start()
-        else:
-            network = None
-
-        gui = gui.ElectrumGui(config, network)
-        gui.main(url)
-
-        if network:
-            network.stop()
-
-        # we use daemon threads, their termination is enforced.
-        # this sleep command gives them time to terminate cleanly.
-        time.sleep(0.1)
-        sys.exit(0)
-
+    cmd = args[0]
     if cmd not in known_commands:
         cmd = 'help'
-
     cmd = known_commands[cmd]
+    config_options = eval(str(options))
+    config = SimpleConfig(config_options)
 
-    # instanciate wallet for command-line
     storage = WalletStorage(config)
-
 
     if cmd.name in ['create', 'restore']:
         if storage.file_exists:
@@ -224,19 +122,6 @@ if __name__ == '__main__':
             password = None
         else:
             password = prompt_password("Password (hit return if you do not wish to encrypt your wallet):")
-
-        # if config.server is set, the user either passed the server on command line
-        # or chose it previously already. if he didn't pass a server on the command line,
-        # we just pick up a random one.
-        if not config.get('server'):
-            config.set_key('server', pick_random_server())
-
-        #fee = options.tx_fee if options.tx_fee else raw_input("fee (default:%s):" % (str(Decimal(wallet.fee)/100000000)))
-        #gap = options.gap_limit if options.gap_limit else raw_input("gap limit (default 5):")
-        #if fee:
-        #    wallet.set_fee(float(fee)*100000000)
-        #if gap:
-        #    wallet.change_gap_limit(int(gap))
 
         if cmd.name == 'restore':
             if options.mpk:

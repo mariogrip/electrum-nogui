@@ -27,7 +27,7 @@ from version import ELECTRUM_VERSION, PROTOCOL_VERSION
 from util import print_error, print_msg
 from simple_config import SimpleConfig
 
-import x509
+#import x509
 
 DEFAULT_TIMEOUT = 5
 proxy_modes = ['socks4', 'socks5', 'http']
